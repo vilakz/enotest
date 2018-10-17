@@ -1,0 +1,87 @@
+# Example config for nginx
+# frontend is available on yii-application.local/
+# backend (backend) is available on yii-application.local/backend
+# make sure that @app/frontend/config/main.php and @app/backend/config/main.php components sections are configured properly
+# e.g. @app/frontend/config/main.php
+#   'homeUrl' => '',
+#   ...
+#   'components' => [
+#         'request' => [
+#              'baseUrl' => '',
+#          ],
+#          'urlManager' => [
+#              'enablePrettyUrl' => true,
+#              'showScriptName' => false,
+#          ],
+#   ]
+#
+# e.g. @app/backend/config/main.php
+#   'homeUrl' => '/backend',
+#   ...
+#   'components => [
+#        'request' => [
+#            'baseUrl' => '/backend',
+#        ],
+#        'urlManager' => [
+#            'enablePrettyUrl' => true,
+#            'showScriptName' => false,
+#        ],
+#   ]
+server {
+    set $project_root /home/devme/data/www/eno.test;
+    set $fcgi_server 127.0.0.1:9002;
+
+    charset utf-8;
+    client_max_body_size 128M;
+
+    listen 80;
+    server_name eno.test;
+
+    root $project_root/frontend/web;
+    index index.php;
+
+    access_log  /home/devme/data/www/eno.test/frontend/runtime/access-backend.log;
+    error_log   /home/devme/data/www/eno.test/frontend/runtime/error-backend.log;
+
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    location /backend {
+        index /web/index.php;
+        alias $project_root/backend/web;
+        try_files $uri $uri/ /web/index.php?$args;
+
+        location ~ ^/backend/.*\.php$ {
+            rewrite ^/backend/(.*)$ /web/$1;
+            fastcgi_pass $fcgi_server;
+            fastcgi_index  index.php;
+            fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_param  PATH_INFO $fastcgi_script_name;
+            include        fastcgi_params;
+        }
+    }
+
+    location ~ ^/web/.*\.php$ {
+        internal;
+        root $project_root/backend;
+        fastcgi_pass $fcgi_server;
+        fastcgi_index  index.php;
+        fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param  PATH_INFO $fastcgi_script_name;
+        include        fastcgi_params;
+    }
+
+    location ~* \.php$ {
+        try_files $uri =404;
+        fastcgi_pass $fcgi_server;
+        fastcgi_index  index.php;
+        fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param  PATH_INFO $fastcgi_script_name;
+        include        fastcgi_params;
+    }
+
+    location ~* \.(htaccess|htpasswd|svn|git) {
+        deny all;
+    }
+}
